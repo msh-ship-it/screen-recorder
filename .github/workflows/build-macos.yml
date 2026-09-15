@@ -1,0 +1,26 @@
+name: Build macOS app
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build .app bundle
+        run: |
+          chmod +x scripts/build_app.sh
+          scripts/build_app.sh --release
+
+      - name: Zip app bundle (preserves code signature)
+        run: |
+          cd .dist
+          ditto -c -k --sequesterRsrc --keepParent "Screen Recorder.app" ScreenRecorder-mac.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScreenRecorder-mac
+          path: .dist/ScreenRecorder-mac.zip
