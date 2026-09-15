@@ -1,5 +1,11 @@
 # Screen Recorder
 
+> **Это форк оригинала [ranlywood/screen-recorder](https://github.com/ranlywood/screen-recorder).**
+> Код не менялся — единственное добавление: workflow GitHub Actions
+> (`.github/workflows/build-macos.yml`), который собирает `.app` на облачном
+> Mac-раннере, чтобы не нужен был свой Mac для сборки. Готовая сборка —
+> в [Releases](../../releases).
+
 Free, local screen recorder for macOS.
 
 Screen Recorder records your screen, microphone, and system audio in separate
