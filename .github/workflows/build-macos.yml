@@ -9,10 +9,45 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build .app bundle
+      - name: Install ffmpeg and dylibbundler
+        run: brew install ffmpeg dylibbundler
+
+      - name: Build .app bundle (codesign happens later, after bundling ffmpeg)
         run: |
           chmod +x scripts/build_app.sh
-          scripts/build_app.sh --release
+          scripts/build_app.sh --release --skip-codesign
+
+      - name: Bundle ffmpeg + its Homebrew dylibs into the app (so users don't need Homebrew)
+        run: |
+          APP=".dist/Screen Recorder.app"
+          FFMPEG_SRC="$(command -v ffmpeg)"
+          mkdir -p "$APP/Contents/Resources" "$APP/Contents/Frameworks"
+          cp "$FFMPEG_SRC" "$APP/Contents/Resources/ffmpeg"
+          chmod +x "$APP/Contents/Resources/ffmpeg"
+          dylibbundler -od -b \
+            -x "$APP/Contents/Resources/ffmpeg" \
+            -d "$APP/Contents/Frameworks" \
+            -p @executable_path/../Frameworks
+          # Sanity check: the relinked binary must still run standalone.
+          "$APP/Contents/Resources/ffmpeg" -version
+
+      - name: Wrap main executable to point SCREENRECORDER_FFMPEG at the bundled ffmpeg
+        run: |
+          MACOS_DIR=".dist/Screen Recorder.app/Contents/MacOS"
+          mv "$MACOS_DIR/ScreenRecorder" "$MACOS_DIR/ScreenRecorder-bin"
+          cat > "$MACOS_DIR/ScreenRecorder" <<'WRAPPER'
+          #!/bin/bash
+          DIR="$(cd "$(dirname "$0")" && pwd)"
+          export SCREENRECORDER_FFMPEG="$DIR/../Resources/ffmpeg"
+          exec "$DIR/ScreenRecorder-bin" "$@"
+          WRAPPER
+          chmod +x "$MACOS_DIR/ScreenRecorder"
+
+      - name: Re-sign the app bundle (ad-hoc; covers the bundled ffmpeg + wrapper too)
+        run: |
+          codesign --force --deep --sign - \
+            --entitlements Resources/ScreenRecorder.entitlements \
+            ".dist/Screen Recorder.app"
 
       - name: Zip app bundle (preserves code signature)
         run: |
